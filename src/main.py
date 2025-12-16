@@ -1,15 +1,189 @@
 # 这是一个示例 Python 脚本。
-
-import numpy as np
 import math
 import tkinter as tk
-from tkinter import filedialog, messagebox
 import pandas as pd
+import json
+from tkinter import filedialog, messagebox
+from zai import ZhipuAiClient
+
 
 # 读取文件大小限制，单位KB
 MAX_SIZE_KB = 200
+API_KEY = "a5838f8742e74e7e8673398089478388.es38Ass8Snsaub2c"
+MODEL_NAME = "glm-4.6"
+# 调用大模型提取数据并返回DataFrame
+def load_data_ai(file_path):
 
-# 加载文件，限制大小200KB
+    client = ZhipuAiClient(api_key=API_KEY)
+    print("client build successfully")
+    with open(file_path) as f:
+        text = f.read()
+        system_prompt = """作为一个文本处理专家，擅长从文本中提取数据。"""
+        json_example = """{
+  "metadata": {
+    "project_name": "",
+    "software": "SATWE2025R1.0 中文版",
+    "calculation_date": "2025/12/15 15:44:43",
+    "file_name": "WWNL1.OUT",
+    "units": "m, kN, kN.m 和 Rad（弧度）"
+  },
+  "columns": [
+    {
+      "N-C": 1,
+      "Node-i": 5,
+      "Node-j": 1,
+      "DL": 3.300,
+      "Angle": 0.000,
+      "internal_forces": [
+        { "iCase": "1*", "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": 18.0, "Mx-Btm": -0.0, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.8 },
+        { "iCase": "1",  "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": 18.0, "Mx-Btm": -0.0, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.8 },
+        { "iCase": "2*", "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": 17.8, "Mx-Btm": -0.1, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.8 },
+        { "iCase": "2",  "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": 17.8, "Mx-Btm": -0.1, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.8 },
+        { "iCase": "3*", "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": 18.2, "Mx-Btm": 0.1, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.7 },
+        { "iCase": "3",  "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": 18.2, "Mx-Btm": 0.1, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.7 },
+        { "iCase": "4*", "Shear-X": -0.0, "Shear-Y": -4.2, "Axial": 90.0, "Mx-Btm": 20.7, "My-Btm": -0.0, "Mx-Top": -7.0, "My-Top": -0.0 },
+        { "iCase": "4",  "Shear-X": -0.0, "Shear-Y": -4.2, "Axial": 90.0, "Mx-Btm": 20.7, "My-Btm": -0.0, "Mx-Top": -7.0, "My-Top": -0.0 },
+        { "iCase": "5*", "Shear-X": -0.0, "Shear-Y": -3.9, "Axial": 88.3, "Mx-Btm": 20.0, "My-Btm": -0.1, "Mx-Top": -7.1, "My-Top": 0.1 },
+        { "iCase": "5",  "Shear-X": -0.0, "Shear-Y": -3.9, "Axial": 88.3, "Mx-Btm": 20.0, "My-Btm": -0.1, "Mx-Top": -7.1, "My-Top": 0.1 },
+        { "iCase": "6*", "Shear-X": 0.0, "Shear-Y": -4.4, "Axial": 91.7, "Mx-Btm": 21.4, "My-Btm": 0.1, "Mx-Top": -6.8, "My-Top": -0.1 },
+        { "iCase": "6",  "Shear-X": 0.0, "Shear-Y": -4.4, "Axial": 91.7, "Mx-Btm": 21.4, "My-Btm": 0.1, "Mx-Top": -6.8, "My-Top": -0.1 },
+        { "iCase": "7",  "Shear-X": -0.9, "Shear-Y": 0.0, "Axial": 3.1, "Mx-Btm": -0.0, "My-Btm": -1.9, "Mx-Top": -0.0, "My-Top": 1.1 },
+        { "iCase": "8",  "Shear-X": 0.0, "Shear-Y": -9.3, "Axial": 165.2, "Mx-Btm": 41.1, "My-Btm": -0.0, "Mx-Top": -10.3, "My-Top": -0.0 },
+        { "iCase": "9",  "Shear-X": 0.5, "Shear-Y": 0.0, "Axial": -70.0, "Mx-Btm": -0.0, "My-Btm": 0.5, "Mx-Top": -0.0, "My-Top": -1.1 },
+        { "iCase": "10", "Shear-X": 0.0, "Shear-Y": 0.0, "Axial": -1.4, "Mx-Btm": -0.0, "My-Btm": 0.0, "Mx-Top": -0.0, "My-Top": -0.1 }
+      ]
+    },
+    {
+      "N-C": 2,
+      "Node-i": 7,
+      "Node-j": 3,
+      "DL": 3.300,
+      "Angle": 0.000,
+      "internal_forces": [
+        { "iCase": "1*", "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": -18.0, "Mx-Btm": 0.0, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.8 },
+        { "iCase": "1",  "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": -18.0, "Mx-Btm": 0.0, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.8 },
+        { "iCase": "2*", "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": -17.8, "Mx-Btm": 0.1, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.8 },
+        { "iCase": "2",  "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": -17.8, "Mx-Btm": 0.1, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.8 },
+        { "iCase": "3*", "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": -18.2, "Mx-Btm": -0.1, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.7 },
+        { "iCase": "3",  "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": -18.2, "Mx-Btm": -0.1, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.7 },
+        { "iCase": "4*", "Shear-X": -0.0, "Shear-Y": -4.2, "Axial": 90.0, "Mx-Btm": 20.7, "My-Btm": -0.0, "Mx-Top": -7.0, "My-Top": 0.0 },
+        { "iCase": "4",  "Shear-X": -0.0, "Shear-Y": -4.2, "Axial": 90.0, "Mx-Btm": 20.7, "My-Btm": -0.0, "Mx-Top": -7.0, "My-Top": 0.0 },
+        { "iCase": "5*", "Shear-X": -0.0, "Shear-Y": -4.4, "Axial": 91.7, "Mx-Btm": 21.4, "My-Btm": -0.1, "Mx-Top": -6.8, "My-Top": 0.1 },
+        { "iCase": "5",  "Shear-X": -0.0, "Shear-Y": -4.4, "Axial": 91.7, "Mx-Btm": 21.4, "My-Btm": -0.1, "Mx-Top": -6.8, "My-Top": 0.1 },
+        { "iCase": "6*", "Shear-X": 0.0, "Shear-Y": -3.9, "Axial": 88.3, "Mx-Btm": 20.0, "My-Btm": 0.1, "Mx-Top": -7.1, "My-Top": -0.1 },
+        { "iCase": "6",  "Shear-X": 0.0, "Shear-Y": -3.9, "Axial": 88.3, "Mx-Btm": 20.0, "My-Btm": 0.1, "Mx-Top": -7.1, "My-Top": -0.1 },
+        { "iCase": "7",  "Shear-X": -0.9, "Shear-Y": -0.0, "Axial": -3.1, "Mx-Btm": 0.0, "My-Btm": -1.9, "Mx-Top": 0.0, "My-Top": 1.1 },
+        { "iCase": "8",  "Shear-X": -0.0, "Shear-Y": -9.3, "Axial": 165.2, "Mx-Btm": 41.1, "My-Btm": -0.0, "Mx-Top": -10.3, "My-Top": 0.0 },
+        { "iCase": "9",  "Shear-X": -0.5, "Shear-Y": 0.0, "Axial": -70.0, "Mx-Btm": -0.0, "My-Btm": -0.5, "Mx-Top": -0.0, "My-Top": 1.1 },
+        { "iCase": "10", "Shear-X": -0.0, "Shear-Y": 0.0, "Axial": -1.4, "Mx-Btm": -0.0, "My-Btm": -0.0, "Mx-Top": -0.0, "My-Top": 0.1 }
+      ]
+    },
+    {
+      "N-C": 3,
+      "Node-i": 6,
+      "Node-j": 2,
+      "DL": 3.300,
+      "Angle": 0.000,
+      "internal_forces": [
+        { "iCase": "1*", "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": 18.0, "Mx-Btm": -0.0, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.8 },
+        { "iCase": "1",  "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": 18.0, "Mx-Btm": -0.0, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.8 },
+        { "iCase": "2*", "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": 18.2, "Mx-Btm": -0.1, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.7 },
+        { "iCase": "2",  "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": 18.2, "Mx-Btm": -0.1, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.7 },
+        { "iCase": "3*", "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": 17.8, "Mx-Btm": 0.1, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.8 },
+        { "iCase": "3",  "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": 17.8, "Mx-Btm": 0.1, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.8 },
+        { "iCase": "4*", "Shear-X": 0.0, "Shear-Y": -4.2, "Axial": -90.0, "Mx-Btm": 20.7, "My-Btm": 0.0, "Mx-Top": -7.0, "My-Top": 0.0 },
+        { "iCase": "4",  "Shear-X": 0.0, "Shear-Y": -4.2, "Axial": -90.0, "Mx-Btm": 20.7, "My-Btm": 0.0, "Mx-Top": -7.0, "My-Top": 0.0 },
+        { "iCase": "5*", "Shear-X": 0.0, "Shear-Y": -3.9, "Axial": -88.3, "Mx-Btm": 20.0, "My-Btm": 0.1, "Mx-Top": -7.1, "My-Top": -0.1 },
+        { "iCase": "5",  "Shear-X": 0.0, "Shear-Y": -3.9, "Axial": -88.3, "Mx-Btm": 20.0, "My-Btm": 0.1, "Mx-Top": -7.1, "My-Top": -0.1 },
+        { "iCase": "6*", "Shear-X": -0.0, "Shear-Y": -4.4, "Axial": -91.7, "Mx-Btm": 21.4, "My-Btm": -0.1, "Mx-Top": -6.8, "My-Top": 0.1 },
+        { "iCase": "6",  "Shear-X": -0.0, "Shear-Y": -4.4, "Axial": -91.7, "Mx-Btm": 21.4, "My-Btm": -0.1, "Mx-Top": -6.8, "My-Top": 0.1 },
+        { "iCase": "7",  "Shear-X": -0.9, "Shear-Y": 0.0, "Axial": 3.1, "Mx-Btm": -0.0, "My-Btm": -1.9, "Mx-Top": -0.0, "My-Top": 1.1 },
+        { "iCase": "8",  "Shear-X": -0.0, "Shear-Y": -9.3, "Axial": -165.2, "Mx-Btm": 41.1, "My-Btm": 0.0, "Mx-Top": -10.3, "My-Top": 0.0 },
+        { "iCase": "9",  "Shear-X": 0.5, "Shear-Y": -0.0, "Axial": -70.0, "Mx-Btm": 0.0, "My-Btm": 0.5, "Mx-Top": 0.0, "My-Top": -1.1 },
+        { "iCase": "10", "Shear-X": 0.0, "Shear-Y": -0.0, "Axial": -1.4, "Mx-Btm": 0.0, "My-Btm": 0.0, "Mx-Top": 0.0, "My-Top": -0.1 }
+      ]
+    },
+    {
+      "N-C": 4,
+      "Node-i": 8,
+      "Node-j": 4,
+      "DL": 3.300,
+      "Angle": 0.000,
+      "internal_forces": [
+        { "iCase": "1*", "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": -18.0, "Mx-Btm": 0.0, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.8 },
+        { "iCase": "1",  "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": -18.0, "Mx-Btm": 0.0, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.8 },
+        { "iCase": "2*", "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": -18.2, "Mx-Btm": 0.1, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.7 },
+        { "iCase": "2",  "Shear-X": -4.8, "Shear-Y": -0.0, "Axial": -18.2, "Mx-Btm": 0.1, "My-Btm": -10.2, "Mx-Top": 0.0, "My-Top": 5.7 },
+        { "iCase": "3*", "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": -17.8, "Mx-Btm": -0.1, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.8 },
+        { "iCase": "3",  "Shear-X": -4.8, "Shear-Y": 0.0, "Axial": -17.8, "Mx-Btm": -0.1, "My-Btm": -10.2, "Mx-Top": -0.0, "My-Top": 5.8 },
+        { "iCase": "4*", "Shear-X": 0.0, "Shear-Y": -4.2, "Axial": -90.0, "Mx-Btm": 20.7, "My-Btm": 0.0, "Mx-Top": -7.0, "My-Top": -0.0 },
+        { "iCase": "4",  "Shear-X": 0.0, "Shear-Y": -4.2, "Axial": -90.0, "Mx-Btm": 20.7, "My-Btm": 0.0, "Mx-Top": -7.0, "My-Top": -0.0 },
+        { "iCase": "5*", "Shear-X": 0.0, "Shear-Y": -4.4, "Axial": -91.7, "Mx-Btm": 21.4, "My-Btm": 0.1, "Mx-Top": -6.8, "My-Top": -0.1 },
+        { "iCase": "5",  "Shear-X": 0.0, "Shear-Y": -4.4, "Axial": -91.7, "Mx-Btm": 21.4, "My-Btm": 0.1, "Mx-Top": -6.8, "My-Top": -0.1 },
+        { "iCase": "6*", "Shear-X": -0.0, "Shear-Y": -3.9, "Axial": -88.3, "Mx-Btm": 20.0, "My-Btm": -0.1, "Mx-Top": -7.1, "My-Top": 0.1 },
+        { "iCase": "6",  "Shear-X": -0.0, "Shear-Y": -3.9, "Axial": -88.3, "Mx-Btm": 20.0, "My-Btm": -0.1, "Mx-Top": -7.1, "My-Top": 0.1 },
+        { "iCase": "7",  "Shear-X": -0.9, "Shear-Y": -0.0, "Axial": -3.1, "Mx-Btm": 0.0, "My-Btm": -1.9, "Mx-Top": 0.0, "My-Top": 1.1 },
+        { "iCase": "8",  "Shear-X": 0.0, "Shear-Y": -9.3, "Axial": -165.2, "Mx-Btm": 41.1, "My-Btm": 0.0, "Mx-Top": -10.3, "My-Top": -0.0 },
+        { "iCase": "9",  "Shear-X": -0.5, "Shear-Y": -0.0, "Axial": -70.0, "Mx-Btm": 0.0, "My-Btm": -0.5, "Mx-Top": 0.0, "My-Top": 1.1 },
+        { "iCase": "10", "Shear-X": -0.0, "Shear-Y": -0.0, "Axial": -1.4, "Mx-Btm": 0.0, "My-Btm": -0.0, "Mx-Top": 0.0, "My-Top": 0.1 }
+      ]
+    }
+  ]
+}"""
+        prompt = f"""{{
+            "task": "根据文本text文本提取出其中的N-C（柱子）相关的数据，并将其整理为json格式",
+            "text": {text},
+            "role": ["输出格式为纯json文本，不要附带任何多余信息！", json格式：{json_example}]
+        }}"""
+        print("加载文件成功，开始读取数据...")
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            thinking={
+                "type": "false",  # 启用深度思考模式
+            },
+            response_format={
+                "type": "json",
+            },
+            stream=False,  # 启用流式输出
+        )
+        content = response.choices[0].message.content
+        split_content = content.split('```json')[1].split('```')[0].strip()
+        print(f"大模型输出结果：{split_content}")
+
+        # 提取json数据
+        json_data = json.loads(split_content)
+
+        # 构建 DataFrame 行列表
+        rows = []
+        for col in json_data["columns"]:
+            base_info = {
+                "N-C": col["N-C"],
+                "Node-i": col["Node-i"],
+                "Node-j": col["Node-j"],
+                "DL": col["DL"],
+                "Angle": col["Angle"]
+            }
+            for force in col["internal_forces"]:
+                row = {**base_info, **force}
+                rows.append(row)
+
+        # 创建 DataFrame
+        df = pd.DataFrame(rows)
+
+        # 可选：调整列顺序，使其更易读
+        column_order = ["N-C", "Node-i", "Node-j", "DL", "Angle", "iCase", "Shear-X", "Shear-Y", "Axial", "Mx-Btm",
+                        "My-Btm", "Mx-Top", "My-Top"]
+        df = df[column_order]
+
+        # 查看前几行
+        print(df.head())
+        return df
+
+# 加载文件，限制大小200KB。并通过大模型提取数据。
 def load_file():
     import os
     root = tk.Tk()
@@ -41,8 +215,7 @@ def load_file():
             )
             continue  # 重新弹出选择框
         else:
-            with open(file_path, "rb") as f:
-                return f  # 合规，返回路径
+            return load_data_ai(file_path)  # 合规，返回路径
 
 # 计算最终结果
 def calculate_result():
@@ -111,9 +284,12 @@ def calculate_result():
     return N_Ey, N_Ey_ratio
 
 if __name__ == '__main__':
-    file = load_file()
-    if file:
-        calculate_result()
+    # 加载原始数据
+    source_data = load_file()
+
+
+    # 计算最终结果
+    # calculate_result()
 
     # 程序结束后等待用户输入，防止控制台窗口关闭
     print("\n程序执行完成，请按任意键退出...")
