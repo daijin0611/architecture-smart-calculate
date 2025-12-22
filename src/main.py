@@ -6,8 +6,7 @@ import json
 from tkinter import filedialog, messagebox
 from zai import ZhipuAiClient
 
-
-# 读取文件大小限制，单位KB
+# 常量，考虑配置文件进行配置
 MAX_SIZE_KB = 200
 API_KEY = "a5838f8742e74e7e8673398089478388.es38Ass8Snsaub2c"
 MODEL_NAME = "glm-4.6"
@@ -179,9 +178,88 @@ def load_data_ai(file_path):
                         "My-Btm", "Mx-Top", "My-Top"]
         df = df[column_order]
 
-        # 查看前几行
+        # 根据N-C列分成多个DataFrame
+        df_dict = {}
+        for nc_value in df['N-C'].unique():
+            # 筛选出特定N-C值的行
+            nc_df = df[df['N-C'] == nc_value].copy()
+
+            # 1. 过滤掉iCase中带*号的行（如果iCase列还存在）
+            if 'iCase' in nc_df.columns:
+                nc_df = nc_df[~nc_df['iCase'].astype(str).str.contains('*', regex=False, na=False)]
+
+            # 2. 去除Shear-X前的所有列（保留从Shear-X开始的列）
+            shear_x_index = nc_df.columns.get_loc('Shear-X') if 'Shear-X' in nc_df.columns else None
+            if shear_x_index is not None:
+                nc_df = nc_df.iloc[:, shear_x_index:]
+
+            # 3. 去除iCase列
+            if 'iCase' in nc_df.columns:
+                nc_df = nc_df.drop('iCase', axis=1)
+
+            # 将处理后的DataFrame添加到字典中
+            df_dict[f"N-C_{nc_value}"] = nc_df
+
+            print(f"处理 N-C={nc_value}: {len(nc_df)} 行，列: {list(nc_df.columns)}")
+
+        # 查看整体信息
+        total_rows = sum(len(df) for df in df_dict.values())
+        print(f"\n处理完成！共 {len(df_dict)} 个柱子，总计 {total_rows} 行数据")
+
+        # 显示每个柱子的前几行数据
+        for key, df_group in df_dict.items():
+            print(f"\n{key} 前3行:")
+            print(df_group.head(3))
+
+        return df_dict
+
+# 读取荷载系数Excel文件
+def load_load_coefficients():
+    """
+    读取荷载系数.xlsx文件并返回DataFrame
+
+    Returns:
+        pd.DataFrame: 包含荷载系数数据的DataFrame
+    """
+    try:
+        file_path = "../data/荷载系数.xlsx"
+        df = pd.read_excel(file_path, engine='openpyxl')
+
+        # 去除iCase列
+        if 'iCase' in df.columns:
+            df = df.drop('iCase', axis=1)
+
+        # 将列名转换为数字并排序
+        # 过滤出可以转换为数字的列名
+        numeric_cols = []
+        other_cols = []
+
+        for col in df.columns:
+            try:
+                # 尝试将列名转换为数字
+                numeric_cols.append((float(col), col))
+            except (ValueError, TypeError):
+                # 如果不能转换为数字，放到其他列中
+                other_cols.append(col)
+
+        # 按数字大小排序
+        numeric_cols.sort(key=lambda x: x[0])
+
+        # 重新排序列：先数字列，后其他列
+        ordered_cols = [col for _, col in numeric_cols] + other_cols
+        df = df[ordered_cols]
+
+        print(f"成功读取荷载系数文件，共 {len(df)} 行数据")
+        print(f"处理后的列名: {list(df.columns)}")
+        print("前5行数据:")
         print(df.head())
         return df
+    except FileNotFoundError:
+        print("错误: 找不到文件 data/荷载系数.xlsx")
+        return None
+    except Exception as e:
+        print(f"读取Excel文件时发生错误: {e}")
+        return None
 
 # 加载文件，限制大小200KB。并通过大模型提取数据。
 def load_file():
@@ -195,7 +273,7 @@ def load_file():
             title=f"请选择一个不超过 {MAX_SIZE_KB} KB 的文件"
         )
 
-        # 用户点击“取消”
+        # 用户点击"取消"
         if not file_path:
             return None
 
@@ -216,6 +294,58 @@ def load_file():
             continue  # 重新弹出选择框
         else:
             return load_data_ai(file_path)  # 合规，返回路径
+
+# 矩阵乘法
+def calculate_matrix(source, coefficients):
+    # 矩阵相乘：荷载系数 × 源数据
+    if source is not None and coefficients is not None:
+        print("\n=== 开始矩阵相乘计算 ===")
+
+        # 为每个柱子分别进行矩阵相乘
+        result_dict = {}
+
+        try:
+            # 确保荷载系数是数值类型
+            load_coefficients_numeric = coefficients.astype(float)
+            print(f"荷载系数矩阵形状: {load_coefficients_numeric.shape}")
+
+            # 对每个柱子进行矩阵相乘
+            for column_name, source_data in source.items():
+                print(f"\n正在处理 {column_name}...")
+
+                # 确保源数据是数值类型
+                source_data_numeric = source_data.astype(float)
+                print(f"{column_name} 源数据矩阵形状: {source_data_numeric.shape}")
+
+                # 矩阵相乘：荷载系数 × 源数据
+                # 荷载系数: (m_load_cases, n_features)
+                # 源数据: (n_rows, n_features)
+                # 结果: (m_load_cases, n_rows)
+                result_matrix = load_coefficients_numeric.values @ source_data_numeric.values
+
+                # 创建结果DataFrame
+                # 行名为荷载工况，列名使用源数据的原始列名
+                result_df = pd.DataFrame(
+                    result_matrix,
+                    index=[f"工况_{i+1}" for i in range(result_matrix.shape[0])],
+                    columns=source_data_numeric.columns.tolist()
+                )
+
+                # 将结果添加到字典中
+                result_dict[column_name] = result_df
+
+                print(f"{column_name} 矩阵相乘完成！结果形状: {result_df.shape}")
+                print(f"{column_name} 结果:")
+                print(result_df)
+
+            print(f"\n所有矩阵相乘完成！共处理 {len(result_dict)} 个柱子")
+
+        except Exception as e:
+            print(f"矩阵相乘计算时发生错误: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print("\n数据加载失败，无法进行矩阵相乘计算")
 
 # 计算最终结果
 def calculate_result():
@@ -285,8 +415,11 @@ def calculate_result():
 
 if __name__ == '__main__':
     # 加载原始数据
-    source_data = load_file()
-
+    source_data_dict = load_file()
+    # 加载荷载系数
+    load_coefficients_df = load_load_coefficients()
+    # 矩阵相乘：荷载系数 * 源数据
+    # calculate_matrix(source_data_dict, load_coefficients_df)
 
     # 计算最终结果
     # calculate_result()
