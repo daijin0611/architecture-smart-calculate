@@ -106,7 +106,7 @@ def read_column_data(filename: str) -> dict:
     return df_dict
 
 
-def load_load_coefficients(file_path: str = "data/荷载系数.xlsx") -> pd.DataFrame:
+def load_load_coefficients(file_path: str = "../data/荷载系数.xlsx") -> pd.DataFrame:
     """
     读取荷载系数Excel文件并返回DataFrame
 
